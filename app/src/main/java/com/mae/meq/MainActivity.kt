@@ -1,6 +1,7 @@
 package com.mae.meq
 
 import android.media.AudioManager
+import android.media.audiofx.LoudnessEnhancer
 import android.os.Bundle
 import android.view.View
 import android.widget.*
@@ -12,6 +13,9 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private val vm: MainViewModel by viewModels()
+
+    private var loudnessEnhancer: LoudnessEnhancer? = null
+    private var systemMaxVol = 0
 
     private val seekBars: List<SeekBar> by lazy {
         listOf(binding.band0, binding.band1, binding.band2, binding.band3, binding.band4)
@@ -47,22 +51,45 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupVolume() {
         val am = getSystemService(AUDIO_SERVICE) as AudioManager
-        val maxVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        systemMaxVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         val curVol = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+        // Slider range: 0 to 140% del máximo del sistema
+        val sliderMax = systemMaxVol * 14 / 10
 
-        binding.seekVolume.max = maxVol
+        try {
+            loudnessEnhancer = LoudnessEnhancer(0).apply { enabled = false }
+        } catch (e: Exception) {
+            loudnessEnhancer = null
+        }
+
+        binding.seekVolume.max = sliderMax
         binding.seekVolume.progress = curVol
-        binding.labelVolume.text = "${curVol * 100 / maxVol}%"
+        binding.labelVolume.text = "${curVol * 100 / systemMaxVol}%"
 
         binding.seekVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
                 if (!fromUser) return
-                am.setStreamVolume(AudioManager.STREAM_MUSIC, progress, 0)
-                binding.labelVolume.text = "${progress * 100 / maxVol}%"
+                if (progress <= systemMaxVol) {
+                    am.setStreamVolume(AudioManager.STREAM_MUSIC, progress, 0)
+                    loudnessEnhancer?.enabled = false
+                } else {
+                    am.setStreamVolume(AudioManager.STREAM_MUSIC, systemMaxVol, 0)
+                    val extra = progress - systemMaxVol
+                    val maxExtra = sliderMax - systemMaxVol
+                    // extra máximo = +3000 millibels (~40% más en amplitud)
+                    val gainMb = extra * 3000 / maxExtra
+                    loudnessEnhancer?.apply { setTargetGain(gainMb); enabled = true }
+                }
+                binding.labelVolume.text = "${progress * 100 / systemMaxVol}%"
             }
             override fun onStartTrackingTouch(sb: SeekBar) {}
             override fun onStopTrackingTouch(sb: SeekBar) {}
         })
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        loudnessEnhancer?.release()
     }
 
     private fun setupBands() {
