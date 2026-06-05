@@ -118,6 +118,7 @@ class MainActivity : AppCompatActivity() {
             val newState = !vm.eqEnabled
             vm.setEnabled(newState)
             binding.btnOnOff.text = if (newState) getString(R.string.btn_on) else getString(R.string.btn_off)
+            setEqControlsEnabled(newState)
         }
 
         binding.btnReset.setOnClickListener {
@@ -125,6 +126,15 @@ class MainActivity : AppCompatActivity() {
             binding.spinnerPreset.setSelection(0)
             applyLevelsToSliders(vm.reset())
         }
+    }
+
+    private fun setEqControlsEnabled(enabled: Boolean) {
+        val alpha = if (enabled) 1.0f else 0.4f
+        seekBars.forEach { it.isEnabled = enabled; it.alpha = alpha }
+        levelLabels.forEach { it.alpha = alpha }
+        freqLabels.forEach { it.alpha = alpha }
+        binding.spinnerPreset.isEnabled = enabled
+        binding.spinnerPreset.alpha = alpha
     }
 
     private fun applyLevelsToSliders(levels: ShortArray) {
