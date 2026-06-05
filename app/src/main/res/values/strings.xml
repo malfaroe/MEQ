@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">MEQ</string>
+    <string name="btn_on">ON</string>
+    <string name="btn_off">OFF</string>
+    <string name="btn_reset">REINICIAR</string>
+    <string name="label_volume">Volumen</string>
+</resources>
