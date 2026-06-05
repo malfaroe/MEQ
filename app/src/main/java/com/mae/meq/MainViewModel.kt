@@ -10,6 +10,14 @@ class MainViewModel : ViewModel() {
     var equalizer: Equalizer? = null
     var eqEnabled = false
 
+    private var storedBandCount = 0
+    private var storedRange: Pair<Short, Short> = Pair((-1500).toShort(), 1500.toShort())
+    private val savedLevels = ShortArray(5) { 0 }
+    private val savedFreqs = IntArray(5) { 0 }
+
+    val bandCount: Int get() = storedBandCount
+    val levelRange: Pair<Short, Short> get() = storedRange
+
     val presets = listOf(
         Preset("Default",    shortArrayOf(0, 0, 0, 0, 0)),
         Preset("Bass Boost", shortArrayOf(800, 400, 0, 0, 0)),
@@ -21,42 +29,59 @@ class MainViewModel : ViewModel() {
         Preset("Flat",       shortArrayOf(0, 0, 0, 0, 0))
     )
 
-    val bandCount: Int get() = equalizer?.numberOfBands?.toInt() ?: 0
-
-    val levelRange: Pair<Short, Short>
-        get() = equalizer?.bandLevelRange?.let {
-            Pair(it[0], it[1])
-        } ?: Pair((-1500).toShort(), 1500.toShort())
-
     fun init() {
         try {
-            equalizer = Equalizer(0, 0).apply { enabled = false }
+            // Solo leer parámetros del dispositivo, luego liberar para no tocar el audio
+            val tempEq = Equalizer(0, 0)
+            storedBandCount = tempEq.numberOfBands.toInt()
+            storedRange = Pair(tempEq.bandLevelRange[0], tempEq.bandLevelRange[1])
+            for (i in 0 until storedBandCount) {
+                if (i < savedFreqs.size) savedFreqs[i] = tempEq.getCenterFreq(i.toShort()) / 1000
+            }
+            tempEq.release()
         } catch (e: Exception) {
-            equalizer = null
+            storedBandCount = 0
         }
     }
 
     fun setEnabled(enabled: Boolean) {
         eqEnabled = enabled
-        equalizer?.enabled = enabled
+        if (enabled) {
+            try {
+                equalizer = Equalizer(0, 0).apply {
+                    val count = numberOfBands.toInt()
+                    for (i in 0 until minOf(count, savedLevels.size)) {
+                        setBandLevel(i.toShort(), savedLevels[i])
+                    }
+                    this.enabled = true
+                }
+            } catch (e: Exception) {
+                equalizer = null
+                eqEnabled = false
+            }
+        } else {
+            equalizer?.release()
+            equalizer = null
+        }
     }
 
     fun setBandLevel(band: Int, levelMb: Short) {
+        if (band < savedLevels.size) savedLevels[band] = levelMb
         equalizer?.setBandLevel(band.toShort(), levelMb)
     }
 
     fun getBandLevel(band: Int): Short =
-        equalizer?.getBandLevel(band.toShort()) ?: 0
+        savedLevels.getOrElse(band) { 0 }
 
     fun getCenterFreqHz(band: Int): Int =
-        (equalizer?.getCenterFreq(band.toShort()) ?: 0) / 1000
+        savedFreqs.getOrElse(band) { 0 }
 
     fun applyPreset(preset: Preset): ShortArray {
-        val eq = equalizer ?: return ShortArray(5)
-        val count = eq.numberOfBands.toInt()
+        val count = storedBandCount
         return ShortArray(count) { i ->
             val level = if (i < preset.levels.size) preset.levels[i] else 0
-            eq.setBandLevel(i.toShort(), level)
+            if (i < savedLevels.size) savedLevels[i] = level
+            equalizer?.setBandLevel(i.toShort(), level)
             level
         }
     }
