@@ -115,7 +115,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupButtons() {
         binding.btnOnOff.setOnClickListener {
-            val newState = !vm.isEnabled
+            val newState = !vm.eqEnabled
             vm.setEnabled(newState)
             binding.btnOnOff.text = if (newState) getString(R.string.btn_on) else getString(R.string.btn_off)
         }

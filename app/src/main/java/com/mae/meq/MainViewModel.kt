@@ -8,7 +8,7 @@ data class Preset(val name: String, val levels: ShortArray)
 class MainViewModel : ViewModel() {
 
     var equalizer: Equalizer? = null
-    var isEnabled = false
+    var eqEnabled = false
 
     val presets = listOf(
         Preset("Default",    shortArrayOf(0, 0, 0, 0, 0)),
@@ -37,7 +37,7 @@ class MainViewModel : ViewModel() {
     }
 
     fun setEnabled(enabled: Boolean) {
-        isEnabled = enabled
+        eqEnabled = enabled
         equalizer?.enabled = enabled
     }
 
